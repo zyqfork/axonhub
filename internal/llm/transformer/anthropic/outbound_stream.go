@@ -238,10 +238,10 @@ func (s *outboundStream) transformStreamChunk(event *httpclient.StreamEvent) (*l
 				choice.Delta.ReasoningContent = streamEvent.Delta.Thinking
 			}
 
-			// Skip signature deltas as they're not part of the content
+			// Handle signature delta - emit as ReasoningSignature event
+			// This will be ignored by OpenAI inbound but used by Anthropic inbound
 			if streamEvent.Delta.Signature != nil {
-				//nolint:nilnil // It is expected.
-				return nil, nil
+				choice.Delta.ReasoningSignature = streamEvent.Delta.Signature
 			}
 
 			resp.Choices = []llm.Choice{choice}

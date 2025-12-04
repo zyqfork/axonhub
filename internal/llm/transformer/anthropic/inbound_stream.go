@@ -192,22 +192,23 @@ func (s *anthropicInboundStream) Next() bool {
 			if s.hasThinkingContentStarted {
 				s.hasThinkingContentStarted = false
 
-				// Add signature delta before stopping thinking block
-				// TODO Confirm if this is needed.
-				// signatureEvent := StreamEvent{
-				// 	Type:  "content_block_delta",
-				// 	Index: &s.contentIndex,
-				// 	Delta: &StreamDelta{
-				// 		Type:      lo.ToPtr("signature_delta"),
-				// 		Signature: lo.ToPtr(""),
-				// 	},
-				// }
+				// Add signature delta before stopping thinking block if signature is available
+				if choice.Delta.ReasoningSignature != nil && *choice.Delta.ReasoningSignature != "" {
+					signatureEvent := StreamEvent{
+						Type:  "content_block_delta",
+						Index: &s.contentIndex,
+						Delta: &StreamDelta{
+							Type:      lo.ToPtr("signature_delta"),
+							Signature: choice.Delta.ReasoningSignature,
+						},
+					}
 
-				// err := s.enqueEvent(&signatureEvent)
-				// if err != nil {
-				// 	s.err = fmt.Errorf("failed to enqueue signature_delta event: %w", err)
-				// 	return false
-				// }
+					err := s.enqueEvent(&signatureEvent)
+					if err != nil {
+						s.err = fmt.Errorf("failed to enqueue signature_delta event: %w", err)
+						return false
+					}
+				}
 
 				stopEvent := StreamEvent{
 					Type:  "content_block_stop",

@@ -101,9 +101,9 @@ func (t *InboundTransformer) TransformStream(
 	ctx context.Context,
 	stream streams.Stream[*llm.Response],
 ) (streams.Stream[*httpclient.StreamEvent], error) {
-	return streams.MapErr(stream, func(chunk *llm.Response) (*httpclient.StreamEvent, error) {
+	return streams.NoNil(streams.MapErr(stream, func(chunk *llm.Response) (*httpclient.StreamEvent, error) {
 		return t.TransformStreamChunk(ctx, chunk)
-	}), nil
+	})), nil
 }
 
 func (t *InboundTransformer) TransformStreamChunk(
@@ -120,6 +120,13 @@ func (t *InboundTransformer) TransformStreamChunk(
 		}, nil
 	}
 
+	// Skip events that only contain ReasoningSignature (used by Anthropic inbound)
+	// OpenAI format doesn't support ReasoningSignature in streaming
+	if isReasoningSignatureOnlyEvent(chatResp) {
+		//nolint:nilnil // Skip this event
+		return nil, nil
+	}
+
 	// For OpenAI, we keep the original response format as the event data
 	eventData, err := json.Marshal(chatResp)
 	if err != nil {
@@ -130,6 +137,33 @@ func (t *InboundTransformer) TransformStreamChunk(
 		Type: "",
 		Data: eventData,
 	}, nil
+}
+
+// isReasoningSignatureOnlyEvent checks if the response only contains ReasoningSignature
+// and no other meaningful content.
+func isReasoningSignatureOnlyEvent(resp *llm.Response) bool {
+	if len(resp.Choices) != 1 {
+		return false
+	}
+
+	delta := resp.Choices[0].Delta
+	if delta == nil {
+		return false
+	}
+
+	// Check if ReasoningSignature is set
+	if delta.ReasoningSignature == nil || *delta.ReasoningSignature == "" {
+		return false
+	}
+
+	// Check if there's no other content
+	hasOtherContent := delta.Content.Content != nil ||
+		len(delta.Content.MultipleContent) > 0 ||
+		delta.ReasoningContent != nil ||
+		len(delta.ToolCalls) > 0 ||
+		delta.Role != ""
+
+	return !hasOtherContent
 }
 
 func (t *InboundTransformer) AggregateStreamChunks(

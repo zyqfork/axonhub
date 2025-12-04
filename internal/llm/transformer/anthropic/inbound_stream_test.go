@@ -85,7 +85,7 @@ func TestInboundTransformer_StreamTransformation_WithTestData(t *testing.T) {
 		{
 			name:                "stream transformation with thinking content and parallel tool calls",
 			inputStreamFile:     "llm-think.stream.jsonl",
-			expectedStreamFile:  "anthropic-think.stream.jsonl",
+			expectedStreamFile:  "anthropic-think-no-sig.stream.jsonl", // No signature_delta since OpenAI format doesn't have signature
 			expectedInputTokens: 587,
 			expectedAggregated: func(t *testing.T, result *Message) {
 				t.Helper()

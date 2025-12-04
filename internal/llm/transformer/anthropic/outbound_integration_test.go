@@ -86,6 +86,10 @@ func normalizeResponseForComparison(t *testing.T, resp *llm.Response) {
 				choice.Message.Content.Content = &trimmed
 			}
 
+			// ReasoningSignature is a help field with json:"-", so we need to normalize it
+			// for comparison since the expected JSON won't have it but actual response will
+			choice.Message.ReasoningSignature = nil
+
 			for j := range choice.Message.Content.MultipleContent {
 				part := &choice.Message.Content.MultipleContent[j]
 				if part.Text != nil {

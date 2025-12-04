@@ -81,6 +81,8 @@ func convertToLLMRequest(anthropicReq *MessageRequest) (*llm.Request, error) {
 				hasReasoningInContent bool
 			)
 
+			var reasoningSignature string
+
 			for _, block := range msg.Content.MultipleContent {
 				switch block.Type {
 				case "thinking":
@@ -88,6 +90,10 @@ func convertToLLMRequest(anthropicReq *MessageRequest) (*llm.Request, error) {
 					if block.Thinking != "" {
 						reasoningContent = block.Thinking
 						hasReasoningInContent = true
+					}
+
+					if block.Signature != "" {
+						reasoningSignature = block.Signature
 					}
 				case "text":
 					contentParts = append(contentParts, llm.MessageContentPart{
@@ -186,9 +192,13 @@ func convertToLLMRequest(anthropicReq *MessageRequest) (*llm.Request, error) {
 				hasContent = true
 			}
 
-			// Assign reasoning content if present and not in MultipleContent
+			// Assign reasoning content and signature if present
 			if reasoningContent != "" && hasReasoningInContent {
 				chatMsg.ReasoningContent = &reasoningContent
+			}
+
+			if reasoningSignature != "" {
+				chatMsg.ReasoningSignature = &reasoningSignature
 			}
 		}
 
@@ -272,10 +282,15 @@ func convertToAnthropicResponse(chatResp *llm.Response) *Message {
 
 			// Handle reasoning content (thinking) first if present
 			if message.ReasoningContent != nil && *message.ReasoningContent != "" {
-				contentBlocks = append(contentBlocks, MessageContentBlock{
+				thinkingBlock := MessageContentBlock{
 					Type:     "thinking",
 					Thinking: *message.ReasoningContent,
-				})
+				}
+				if message.ReasoningSignature != nil && *message.ReasoningSignature != "" {
+					thinkingBlock.Signature = *message.ReasoningSignature
+				}
+
+				contentBlocks = append(contentBlocks, thinkingBlock)
 			}
 
 			// Handle regular content
